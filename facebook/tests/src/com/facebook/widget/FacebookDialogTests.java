@@ -16,17 +16,16 @@
 
 package com.facebook.widget;
 
-import android.content.Intent;
 import android.graphics.Bitmap;
-import android.os.Bundle;
+import com.facebook.FacebookException;
 import com.facebook.FacebookTestCase;
-import com.facebook.internal.NativeProtocol;
 import com.facebook.model.GraphObject;
 import com.facebook.model.OpenGraphAction;
 import com.facebook.model.OpenGraphObject;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import java.io.File;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -40,11 +39,11 @@ public class FacebookDialogTests extends FacebookTestCase {
 
     public void testCantSetAttachmentsWithNullBitmaps() {
         try {
-            OpenGraphAction action = OpenGraphAction.Factory.createForPost();
+            OpenGraphAction action = OpenGraphAction.Factory.createForPost("foo");
             action.setProperty("foo", "bar");
 
             FacebookDialog.OpenGraphActionDialogBuilder builder =
-                    new FacebookDialog.OpenGraphActionDialogBuilder(getActivity(), action, "foo", "foo");
+                    new FacebookDialog.OpenGraphActionDialogBuilder(getActivity(), action, "foo");
 
             builder.setImageAttachmentsForAction(Arrays.asList((Bitmap)null));
             fail("expected exception");
@@ -53,11 +52,11 @@ public class FacebookDialogTests extends FacebookTestCase {
     }
 
     public void testOpenGraphActionImageAttachments() throws JSONException {
-        OpenGraphAction action = OpenGraphAction.Factory.createForPost();
+        OpenGraphAction action = OpenGraphAction.Factory.createForPost("foo");
         action.setProperty("foo", "bar");
 
         FacebookDialog.OpenGraphActionDialogBuilder builder =
-                new FacebookDialog.OpenGraphActionDialogBuilder(getActivity(), action, "foo", "foo");
+                new FacebookDialog.OpenGraphActionDialogBuilder(getActivity(), action, "foo");
 
         Bitmap bitmap = Bitmap.createBitmap(20, 20, Bitmap.Config.ALPHA_8);
 
@@ -78,7 +77,7 @@ public class FacebookDialogTests extends FacebookTestCase {
     public void testCantSetObjectAttachmentsWithoutAction() {
         try {
             FacebookDialog.OpenGraphActionDialogBuilder builder =
-                    new FacebookDialog.OpenGraphActionDialogBuilder(getActivity(), null, "foo", "foo");
+                    new FacebookDialog.OpenGraphActionDialogBuilder(getActivity(), null, "foo");
             builder.setImageAttachmentsForObject("foo", new ArrayList<Bitmap>());
             fail("expected exception");
         } catch (NullPointerException exception) {
@@ -87,9 +86,9 @@ public class FacebookDialogTests extends FacebookTestCase {
 
     public void testCantSetObjectAttachmentsWithoutObjectProperty() {
         try {
-            OpenGraphAction action = OpenGraphAction.Factory.createForPost();
+            OpenGraphAction action = OpenGraphAction.Factory.createForPost("foo");
             FacebookDialog.OpenGraphActionDialogBuilder builder =
-                    new FacebookDialog.OpenGraphActionDialogBuilder(getActivity(), action, "foo", "foo");
+                    new FacebookDialog.OpenGraphActionDialogBuilder(getActivity(), action, "foo");
 
             builder.setImageAttachmentsForObject("foo", new ArrayList<Bitmap>());
             fail("expected exception");
@@ -99,9 +98,9 @@ public class FacebookDialogTests extends FacebookTestCase {
 
     public void testCantSetObjectAttachmentsWithNonGraphObjectProperty() {
         try {
-            OpenGraphAction action = OpenGraphAction.Factory.createForPost();
+            OpenGraphAction action = OpenGraphAction.Factory.createForPost("foo");
             FacebookDialog.OpenGraphActionDialogBuilder builder =
-                    new FacebookDialog.OpenGraphActionDialogBuilder(getActivity(), action, "foo", "foo");
+                    new FacebookDialog.OpenGraphActionDialogBuilder(getActivity(), action, "foo");
 
             action.setProperty("foo", "bar");
 
@@ -113,11 +112,11 @@ public class FacebookDialogTests extends FacebookTestCase {
 
     public void testCantSetObjectAttachmentsWithNullBitmaps() {
         try {
-            OpenGraphAction action = OpenGraphAction.Factory.createForPost();
+            OpenGraphAction action = OpenGraphAction.Factory.createForPost("foo");
             action.setProperty("foo", OpenGraphObject.Factory.createForPost("bar"));
 
             FacebookDialog.OpenGraphActionDialogBuilder builder =
-                    new FacebookDialog.OpenGraphActionDialogBuilder(getActivity(), action, "foo", "foo");
+                    new FacebookDialog.OpenGraphActionDialogBuilder(getActivity(), action, "foo");
 
             builder.setImageAttachmentsForObject("foo", Arrays.asList((Bitmap)null));
             fail("expected exception");
@@ -126,12 +125,12 @@ public class FacebookDialogTests extends FacebookTestCase {
     }
 
     public void testOpenGraphObjectImageAttachments() throws JSONException {
-        OpenGraphAction action = OpenGraphAction.Factory.createForPost();
+        OpenGraphAction action = OpenGraphAction.Factory.createForPost("foo");
         OpenGraphObject object = OpenGraphObject.Factory.createForPost("bar");
         action.setProperty("foo", object);
 
         FacebookDialog.OpenGraphActionDialogBuilder builder =
-                new FacebookDialog.OpenGraphActionDialogBuilder(getActivity(), action, "foo", "foo");
+                new FacebookDialog.OpenGraphActionDialogBuilder(getActivity(), action, "foo");
 
         Bitmap bitmap = Bitmap.createBitmap(20, 20, Bitmap.Config.ALPHA_8);
 
@@ -150,12 +149,12 @@ public class FacebookDialogTests extends FacebookTestCase {
     }
 
     public void testOpenGraphActionAndObjectImageAttachments() throws JSONException {
-        OpenGraphAction action = OpenGraphAction.Factory.createForPost();
+        OpenGraphAction action = OpenGraphAction.Factory.createForPost("foo");
         OpenGraphObject object = OpenGraphObject.Factory.createForPost("bar");
         action.setProperty("foo", object);
 
         FacebookDialog.OpenGraphActionDialogBuilder builder =
-                new FacebookDialog.OpenGraphActionDialogBuilder(getActivity(), action, "foo", "foo");
+                new FacebookDialog.OpenGraphActionDialogBuilder(getActivity(), action, "foo");
 
         Bitmap bitmap = Bitmap.createBitmap(20, 20, Bitmap.Config.ALPHA_8);
 
@@ -184,7 +183,7 @@ public class FacebookDialogTests extends FacebookTestCase {
     public void testOpenGraphDialogBuilderRequiresAction() {
         try {
             FacebookDialog.OpenGraphActionDialogBuilder builder =
-                    new FacebookDialog.OpenGraphActionDialogBuilder(getActivity(), null, "foo", "foo");
+                    new FacebookDialog.OpenGraphActionDialogBuilder(getActivity(), null, "foo");
 
             builder.build();
             fail("expected exception");
@@ -196,7 +195,7 @@ public class FacebookDialogTests extends FacebookTestCase {
         try {
             FacebookDialog.OpenGraphActionDialogBuilder builder =
                     new FacebookDialog.OpenGraphActionDialogBuilder(getActivity(),
-                            OpenGraphAction.Factory.createForPost(), null, "foo");
+                            OpenGraphAction.Factory.createForPost(null), "foo");
 
             builder.build();
             fail("expected exception");
@@ -208,7 +207,7 @@ public class FacebookDialogTests extends FacebookTestCase {
         try {
             FacebookDialog.OpenGraphActionDialogBuilder builder =
                     new FacebookDialog.OpenGraphActionDialogBuilder(getActivity(),
-                            OpenGraphAction.Factory.createForPost(), "foo", null);
+                            OpenGraphAction.Factory.createForPost("foo"), null);
 
             builder.build();
             fail("expected exception");
@@ -220,7 +219,38 @@ public class FacebookDialogTests extends FacebookTestCase {
         try {
             FacebookDialog.OpenGraphActionDialogBuilder builder =
                     new FacebookDialog.OpenGraphActionDialogBuilder(getActivity(),
-                            OpenGraphAction.Factory.createForPost(), "foo", "nosuchproperty");
+                            OpenGraphAction.Factory.createForPost("foo"), "nosuchproperty");
+
+            builder.build();
+            fail("expected exception");
+        } catch (IllegalArgumentException exception) {
+        }
+    }
+
+    @SuppressWarnings("deprecation")
+    public void testOpenGraphDialogBuilderDeprecatedConstructorRequiresActionType() {
+        try {
+            OpenGraphAction action = OpenGraphAction.Factory.createForPost();
+            OpenGraphObject object = OpenGraphObject.Factory.createForPost("bar");
+            action.setProperty("object", object);
+            FacebookDialog.OpenGraphActionDialogBuilder builder =
+                    new FacebookDialog.OpenGraphActionDialogBuilder(getActivity(), action, "", "object");
+
+            builder.build();
+            fail("expected exception");
+        } catch (IllegalArgumentException exception) {
+        }
+
+    }
+
+    @SuppressWarnings("deprecation")
+    public void testOpenGraphDialogBuilderDeprecatedConstructorRequiresActionTypeMatches() {
+        try {
+            OpenGraphAction action = OpenGraphAction.Factory.createForPost("foo");
+            OpenGraphObject object = OpenGraphObject.Factory.createForPost("bar");
+            action.setProperty("object", object);
+            FacebookDialog.OpenGraphActionDialogBuilder builder =
+                    new FacebookDialog.OpenGraphActionDialogBuilder(getActivity(), action, "notfoo", "object");
 
             builder.build();
             fail("expected exception");

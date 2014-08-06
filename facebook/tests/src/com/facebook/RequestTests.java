@@ -23,6 +23,7 @@ import android.os.Bundle;
 import android.test.suitebuilder.annotation.LargeTest;
 import android.test.suitebuilder.annotation.MediumTest;
 import android.test.suitebuilder.annotation.SmallTest;
+import com.facebook.internal.ServerProtocol;
 import com.facebook.model.*;
 
 import java.io.File;
@@ -36,6 +37,11 @@ import java.util.List;
 
 public class RequestTests extends FacebookTestCase {
     private final static String TEST_OG_TYPE = "facebooksdktests:test";
+
+    protected String[] getPermissionsForDefaultTestSession()
+    {
+        return new String[] { "email", "publish_actions", "read_stream" };
+    };
 
     @SmallTest
     @MediumTest
@@ -136,6 +142,129 @@ public class RequestTests extends FacebookTestCase {
     @SmallTest
     @MediumTest
     @LargeTest
+    public void testNewPostOpenGraphObjectRequestRequiresObject() {
+        try {
+            Request.newPostOpenGraphObjectRequest(null, null, null);
+            fail("expected exception");
+        } catch (FacebookException exception) {
+            // Success
+        }
+    }
+
+    @SmallTest
+    @MediumTest
+    @LargeTest
+    public void testNewPostOpenGraphObjectRequestRequiresObjectType() {
+        try {
+            OpenGraphObject object = OpenGraphObject.Factory.createForPost(null);
+            Request.newPostOpenGraphObjectRequest(null, object, null);
+            fail("expected exception");
+        } catch (FacebookException exception) {
+            // Success
+        }
+    }
+
+    @SmallTest
+    @MediumTest
+    @LargeTest
+    public void testNewPostOpenGraphObjectRequestRequiresNonEmptyObjectType() {
+        try {
+            OpenGraphObject object = OpenGraphObject.Factory.createForPost("");
+            object.setTitle("bar");
+            Request.newPostOpenGraphObjectRequest(null, object, null);
+            fail("expected exception");
+        } catch (FacebookException exception) {
+            // Success
+        }
+    }
+
+    @SmallTest
+    @MediumTest
+    @LargeTest
+    public void testNewPostOpenGraphObjectRequestRequiresTitle() {
+        try {
+            OpenGraphObject object = OpenGraphObject.Factory.createForPost("foo");
+            Request.newPostOpenGraphObjectRequest(null, object, null);
+            fail("expected exception");
+        } catch (FacebookException exception) {
+            // Success
+        }
+    }
+
+    @SmallTest
+    @MediumTest
+    @LargeTest
+    public void testNewPostOpenGraphObjectRequestRequiresNonEmptyTitle() {
+        try {
+            OpenGraphObject object = OpenGraphObject.Factory.createForPost("foo");
+            object.setTitle("");
+            Request.newPostOpenGraphObjectRequest(null, object, null);
+            fail("expected exception");
+        } catch (FacebookException exception) {
+            // Success
+        }
+    }
+
+    @SmallTest
+    @MediumTest
+    @LargeTest
+    public void testNewPostOpenGraphObjectRequest() {
+        OpenGraphObject object = OpenGraphObject.Factory.createForPost("foo");
+        object.setTitle("bar");
+        Request request = Request.newPostOpenGraphObjectRequest(null, object, null);
+        assertNotNull(request);
+    }
+
+    @SmallTest
+    @MediumTest
+    @LargeTest
+    public void testNewPostOpenGraphActionRequestRequiresAction() {
+        try {
+            Request.newPostOpenGraphActionRequest(null, null, null);
+            fail("expected exception");
+        } catch (FacebookException exception) {
+            // Success
+        }
+    }
+
+    @SmallTest
+    @MediumTest
+    @LargeTest
+    public void testNewPostOpenGraphActionRequestRequiresActionType() {
+        try {
+            OpenGraphAction action = OpenGraphAction.Factory.createForPost(null);
+            Request.newPostOpenGraphActionRequest(null, action, null);
+            fail("expected exception");
+        } catch (FacebookException exception) {
+            // Success
+        }
+    }
+
+    @SmallTest
+    @MediumTest
+    @LargeTest
+    public void testNewPostOpenGraphActionRequestRequiresNonEmptyActionType() {
+        try {
+            OpenGraphAction action = OpenGraphAction.Factory.createForPost("");
+            Request.newPostOpenGraphActionRequest(null, action, null);
+            fail("expected exception");
+        } catch (FacebookException exception) {
+            // Success
+        }
+    }
+
+    @SmallTest
+    @MediumTest
+    @LargeTest
+    public void testNewPostOpenGraphActionRequest() {
+        OpenGraphAction action = OpenGraphAction.Factory.createForPost("foo");
+        Request request = Request.newPostOpenGraphActionRequest(null, action, null);
+        assertNotNull(request);
+    }
+
+    @SmallTest
+    @MediumTest
+    @LargeTest
     public void testSetHttpMethodToNilGivesDefault() {
         Request request = new Request();
         assertEquals(HttpMethod.GET, request.getHttpMethod());
@@ -220,7 +349,7 @@ public class RequestTests extends FacebookTestCase {
         assertTrue(connection != null);
 
         assertEquals("GET", connection.getRequestMethod());
-        assertEquals("/TourEiffel", connection.getURL().getPath());
+        assertEquals("/" + ServerProtocol.getAPIVersion() + "/TourEiffel", connection.getURL().getPath());
 
         assertTrue(connection.getRequestProperty("User-Agent").startsWith("FBAndroidSDK"));
 
@@ -229,15 +358,33 @@ public class RequestTests extends FacebookTestCase {
         assertEquals("json", uri.getQueryParameter("format"));
     }
 
+    @SmallTest
+    @MediumTest
+    @LargeTest
+    public void testBuildsClientTokenIfNeeded() throws Exception {
+        Request requestMe = new Request(null, "TourEiffel");
+        HttpURLConnection connection = Request.toHttpConnection(requestMe);
+
+        assertTrue(connection != null);
+
+        Uri uri = Uri.parse(connection.getURL().toString());
+        String accessToken = uri.getQueryParameter("access_token");
+        assertNotNull(accessToken);
+        assertTrue(accessToken.contains(Settings.getApplicationId()));
+        assertTrue(accessToken.contains(Settings.getClientToken()));
+    }
+
     @MediumTest
     @LargeTest
     public void testExecuteSingleGet() {
-        Request request = new Request(null, "TourEiffel");
+        TestSession session = openTestSessionWithSharedUser();
+        Request request = new Request(session, "TourEiffel");
         Response response = request.executeAndWait();
 
         assertTrue(response != null);
         assertTrue(response.getError() == null);
         assertTrue(response.getGraphObject() != null);
+        assertNotNull(response.getRawResponse());
 
         GraphPlace graphPlace = response.getGraphObjectAs(GraphPlace.class);
         assertEquals("Paris", graphPlace.getLocation().getCity());
@@ -246,7 +393,8 @@ public class RequestTests extends FacebookTestCase {
     @MediumTest
     @LargeTest
     public void testExecuteSingleGetUsingHttpURLConnection() throws IOException {
-        Request request = new Request(null, "TourEiffel");
+        TestSession session = openTestSessionWithSharedUser();
+        Request request = new Request(session, "TourEiffel");
         HttpURLConnection connection = Request.toHttpConnection(request);
 
         List<Response> responses = Request.executeConnectionAndWait(connection, Arrays.asList(new Request[]{request}));
@@ -258,6 +406,7 @@ public class RequestTests extends FacebookTestCase {
         assertTrue(response != null);
         assertTrue(response.getError() == null);
         assertTrue(response.getGraphObject() != null);
+        assertNotNull(response.getRawResponse());
 
         GraphPlace graphPlace = response.getGraphObjectAs(GraphPlace.class);
         assertEquals("Paris", graphPlace.getLocation().getCity());
@@ -265,7 +414,7 @@ public class RequestTests extends FacebookTestCase {
         // Make sure calling code can still access HTTP headers and call disconnect themselves.
         int code = connection.getResponseCode();
         assertEquals(200, code);
-        assertTrue(connection.getHeaderFields().keySet().contains("Content-Length"));
+        assertTrue(connection.getHeaderFields().keySet().contains("Content-Type"));
         connection.disconnect();
     }
 
@@ -335,6 +484,7 @@ public class RequestTests extends FacebookTestCase {
         GraphUser me = response.getGraphObjectAs(GraphUser.class);
         assertNotNull(me);
         assertEquals(session.getTestUserId(), me.getId());
+        assertNotNull(response.getRawResponse());
     }
 
     @MediumTest
@@ -358,6 +508,8 @@ public class RequestTests extends FacebookTestCase {
 
         List<GraphObject> results = graphResult.getData();
         assertNotNull(results);
+
+        assertNotNull(response.getRawResponse());
     }
 
     @MediumTest
@@ -380,6 +532,8 @@ public class RequestTests extends FacebookTestCase {
 
         List<GraphObject> results = graphResult.getData();
         assertNotNull(results);
+
+        assertNotNull(response.getRawResponse());
     }
 
     @MediumTest
@@ -399,6 +553,8 @@ public class RequestTests extends FacebookTestCase {
 
         List<GraphObject> results = graphResult.getData();
         assertNotNull(results);
+
+        assertNotNull(response.getRawResponse());
     }
 
     @MediumTest
@@ -421,6 +577,8 @@ public class RequestTests extends FacebookTestCase {
 
         List<GraphObject> results = graphResult.getData();
         assertNotNull(results);
+
+        assertNotNull(response.getRawResponse());
     }
 
     private String executePostOpenGraphRequest() {
@@ -439,6 +597,8 @@ public class RequestTests extends FacebookTestCase {
         GraphObject graphResult = response.getGraphObject();
         assertNotNull(graphResult);
         assertNotNull(graphResult.getProperty("id"));
+
+        assertNotNull(response.getRawResponse());
 
         return (String) graphResult.getProperty("id");
     }
@@ -463,6 +623,7 @@ public class RequestTests extends FacebookTestCase {
         assertNotNull(result);
 
         assertTrue((Boolean) result.getProperty(Response.NON_JSON_RESPONSE_PROPERTY));
+        assertNotNull(response.getRawResponse());
     }
 
     @LargeTest
@@ -482,6 +643,7 @@ public class RequestTests extends FacebookTestCase {
 
         GraphObject result = response.getGraphObject();
         assertNotNull(result);
+        assertNotNull(response.getRawResponse());
     }
 
     @LargeTest
@@ -497,6 +659,7 @@ public class RequestTests extends FacebookTestCase {
 
         GraphObject result = response.getGraphObject();
         assertNotNull(result);
+        assertNotNull(response.getRawResponse());
     }
 
     @LargeTest
@@ -524,6 +687,7 @@ public class RequestTests extends FacebookTestCase {
 
             GraphObject result = response.getGraphObject();
             assertNotNull(result);
+            assertNotNull(response.getRawResponse());
         } finally {
             if (outStream != null) {
                 outStream.close();
@@ -549,6 +713,7 @@ public class RequestTests extends FacebookTestCase {
 
             GraphObject result = response.getGraphObject();
             assertNotNull(result);
+            assertNotNull(response.getRawResponse());
         } catch (Exception ex) {
             return;
         } finally {
@@ -589,6 +754,8 @@ public class RequestTests extends FacebookTestCase {
         GraphObject user = graphObjects.get(0);
         assertNotNull(user);
         assertEquals(testUserId, user.getProperty("uid").toString());
+
+        assertNotNull(response.getRawResponse());
     }
 
     @MediumTest
@@ -607,6 +774,57 @@ public class RequestTests extends FacebookTestCase {
         Response response = request.executeAndWait();
         assertNotNull(response);
         assertTrue(calledBack.size() == 1);
+    }
+
+    @MediumTest
+    @LargeTest
+    public void testOnProgressCallbackIsCalled() {
+        Bitmap image = Bitmap.createBitmap(128, 128, Bitmap.Config.ALPHA_8);
+
+        Request request = Request.newUploadPhotoRequest(null, image, null);
+        assertTrue(request != null);
+
+        final ArrayList<Boolean> calledBack = new ArrayList<Boolean>();
+        request.setCallback(new Request.OnProgressCallback() {
+            @Override
+            public void onCompleted(Response response) {
+            }
+
+            @Override
+            public void onProgress(long current, long max) {
+                calledBack.add(true);
+            }
+        });
+
+        Response response = request.executeAndWait();
+        assertNotNull(response);
+        assertFalse(calledBack.isEmpty());
+    }
+
+    @MediumTest
+    @LargeTest
+    public void testLastOnProgressCallbackIsCalledOnce() {
+        Bitmap image = Bitmap.createBitmap(128, 128, Bitmap.Config.ALPHA_8);
+
+        Request request = Request.newUploadPhotoRequest(null, image, null);
+        assertTrue(request != null);
+
+        final ArrayList<Boolean> calledBack = new ArrayList<Boolean>();
+        request.setCallback(new Request.OnProgressCallback() {
+            @Override
+            public void onCompleted(Response response) {
+            }
+
+            @Override
+            public void onProgress(long current, long max) {
+                if (current == max) calledBack.add(true);
+                else if (current > max) calledBack.clear();
+            }
+        });
+
+        Response response = request.executeAndWait();
+        assertNotNull(response);
+        assertEquals(1, calledBack.size());
     }
 
     @MediumTest
